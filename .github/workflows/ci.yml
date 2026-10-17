@@ -1,0 +1,76 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      HUSKY: '0'
+      CI: 'true'
+      PRIVATE_BUILD_SENTINEL: MONOMYTH_PRIVATE_SENTINEL_CI
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Pin npm
+        run: npm install --global npm@11.12.1
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Install verified Gitleaks CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(cat .gitleaks-version)"
+          archive="gitleaks_${version}_linux_x64.tar.gz"
+          destination="$(mktemp -d)"
+          curl --fail --silent --show-error --location "https://github.com/gitleaks/gitleaks/releases/download/v${version}/${archive}" --output "${destination}/${archive}"
+          cp .gitleaks-linux.sha256 "${destination}/checksums.txt"
+          cd "${destination}"
+          awk -v file="${archive}" '$2 == file { print }' checksums.txt > selected-checksum.txt
+          test -s selected-checksum.txt
+          sha256sum --check selected-checksum.txt
+          tar -xzf "${archive}" gitleaks
+          echo "${destination}" >> "${GITHUB_PATH}"
+      - name: Scan available Git history
+        run: npm run scan:history
+      - name: Check dependency advisories
+        run: npm run audit:dependencies
+      - name: Install Chromium and Linux dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Verify source, build, security, and browser behavior
+        run: npm run check
+      - name: Retain diagnostic reports
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: failure-reports
+          path: |
+            playwright-report/
+            test-results/
+            coverage/
+          retention-days: 7
+      - name: Retain verified frontend build
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: frontend-${{ github.sha }}
+          path: dist/
+          retention-days: 7

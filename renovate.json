@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "rangeStrategy": "pin",
+  "automerge": false,
+  "minimumReleaseAge": "3 days",
+  "packageRules": [
+    { "matchPackageNames": ["three", "@types/three"], "groupName": "Three.js and types" },
+    { "matchPackageNames": ["vitest", "@vitest/coverage-v8"], "groupName": "Vitest and coverage" },
+    {
+      "matchPackageNames": ["eslint", "@eslint/js", "typescript-eslint"],
+      "groupName": "ESLint tooling"
+    }
+  ]
+}

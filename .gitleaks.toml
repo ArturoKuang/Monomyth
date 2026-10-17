@@ -1,0 +1,8 @@
+title = "Monomyth secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dependencies, generated local reports, and lockfile checksums"
+paths = ['''(^|/)node_modules/''', '''(^|/)\.git/''', '''(^|/)coverage/''', '''(^|/)playwright-report/''', '''(^|/)test-results/''', '''(^|/)package-lock\.json$''']
